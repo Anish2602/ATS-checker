@@ -1,0 +1,464 @@
+openapi: 3.0.0
+info:
+  title: Enterprise ATS Resume Analyzer API
+  version: 1.0.0
+  description: Production-grade REST API specifications for resume upload, job description parsing, matching analytics, and AI rewriting features.
+
+servers:
+  - url: https://api.atschecker.com/v1
+    description: Production Server
+  - url: http://localhost:8000/v1
+    description: Local Dev Server
+
+paths:
+  # ---------------------------------------------------------------------------
+  # AUTHENTICATION
+  # ---------------------------------------------------------------------------
+  /auth/register:
+    post:
+      summary: Register a new candidate user
+      tags:
+        - Authentication
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+                - password
+              properties:
+                email:
+                  type: string
+                  format: email
+                password:
+                  type: string
+                  minLength: 8
+                first_name:
+                  type: string
+                last_name:
+                  type: string
+      responses:
+        '201':
+          description: User registered successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user_id:
+                    type: string
+                    format: uuid
+                  email:
+                    type: string
+        '400':
+          description: Email already in use or validation error
+
+  /auth/login:
+    post:
+      summary: Authenticate user and issue access tokens
+      tags:
+        - Authentication
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+                - password
+              properties:
+                email:
+                  type: string
+                  format: email
+                password:
+                  type: string
+      responses:
+        '200':
+          description: Authentication successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  access_token:
+                    type: string
+                  refresh_token:
+                    type: string
+                  expires_in:
+                    type: integer
+        '401':
+          description: Invalid credentials
+
+  # ---------------------------------------------------------------------------
+  # RESUME MANAGEMENT
+  # ---------------------------------------------------------------------------
+  /resumes:
+    post:
+      summary: Upload a new resume document (PDF, DOCX, TXT)
+      tags:
+        - Resumes
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - file
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: Resume file binary
+      responses:
+        '202':
+          description: File uploaded and parsing job queued
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  resume_id:
+                    type: string
+                    format: uuid
+                  status:
+                    type: string
+                    example: queued
+                  check_status_url:
+                    type: string
+        '400':
+          description: Unsupported file format or file too large
+
+    get:
+      summary: Retrieve all uploaded resumes for the user
+      tags:
+        - Resumes
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: List of resumes retrieved
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ResumeSummary'
+
+  # ---------------------------------------------------------------------------
+  # JOB DESCRIPTIONS
+  # ---------------------------------------------------------------------------
+  /jobs:
+    post:
+      summary: Save and analyze a raw Job Description
+      tags:
+        - Job Descriptions
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - title
+                - raw_text
+              properties:
+                title:
+                  type: string
+                company:
+                  type: string
+                raw_text:
+                  type: string
+                experience_years:
+                  type: integer
+      responses:
+        '201':
+          description: JD parsed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JobDescription'
+
+  # ---------------------------------------------------------------------------
+  # ATS MATCHMAKING & ANALYSES
+  # ---------------------------------------------------------------------------
+  /analyses:
+    post:
+      summary: Initialize an asynchronous Resume to JD matchmaking analysis
+      tags:
+        - Matchmaking Analyses
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - resume_id
+                - job_description_id
+              properties:
+                resume_id:
+                  type: string
+                  format: uuid
+                job_description_id:
+                  type: string
+                  format: uuid
+      responses:
+        '202':
+          description: Analysis initialized and queued
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  analysis_id:
+                    type: string
+                    format: uuid
+                  status:
+                    type: string
+                    example: processing
+                  websocket_channel:
+                    type: string
+
+  /analyses/{id}:
+    get:
+      summary: Retrieve complete scoring metrics, gaps, and rewrite suggestions
+      tags:
+        - Matchmaking Analyses
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Full optimization report
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AnalysisReport'
+        '404':
+          description: Report not found or processing incomplete
+
+  # ---------------------------------------------------------------------------
+  # BULLET POINT REWRITING
+  # ---------------------------------------------------------------------------
+  /rewriter/bullet:
+    post:
+      summary: Quantify and optimize a single experience or project bullet point
+      tags:
+        - Optimization Engine
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - original_text
+                - target_role
+              properties:
+                original_text:
+                  type: string
+                  example: Developed APIs for internal applications.
+                target_role:
+                  type: string
+                  example: Senior Backend Engineer
+                target_company:
+                  type: string
+                  example: Amazon
+      responses:
+        '200':
+          description: Optimization output
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  weakness_score:
+                    type: integer
+                    minimum: 0
+                    maximum: 100
+                  original:
+                    type: string
+                  improved:
+                    type: string
+                  reasons:
+                    type: array
+                    items:
+                      type: string
+
+  # ---------------------------------------------------------------------------
+  # BENCHMARKS
+  # ---------------------------------------------------------------------------
+  /analytics/benchmarks:
+    get:
+      summary: Compare analysis results against standard corporate profile groups
+      tags:
+        - Optimization Engine
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: analysis_id
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Benchmark percentiles and matrix distances
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  analysis_id:
+                    type: string
+                    format: uuid
+                  percentiles:
+                    type: object
+                    properties:
+                      junior:
+                        type: number
+                      mid_level:
+                        type: number
+                      senior:
+                        type: number
+                      faang_tier:
+                        type: number
+                      startup_tier:
+                        type: number
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    ResumeSummary:
+      type: object
+      properties:
+        resume_id:
+          type: string
+          format: uuid
+        file_name:
+          type: string
+        file_type:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+
+    JobDescription:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        company:
+          type: string
+        raw_text:
+          type: string
+        parsed_skills:
+          type: array
+          items:
+            type: string
+        parsed_experience_years:
+          type: integer
+
+    AnalysisReport:
+      type: object
+      properties:
+        analysis_id:
+          type: string
+          format: uuid
+        overall_scores:
+          type: object
+          properties:
+            ats_compatibility:
+              type: number
+            jd_match:
+              type: number
+            keyword_match:
+              type: number
+            formatting:
+              type: number
+            grammar:
+              type: number
+            experience:
+              type: number
+            projects:
+              type: number
+        keywords:
+          type: object
+          properties:
+            present:
+              type: array
+              items:
+                type: string
+            missing:
+              type: array
+              items:
+                type: string
+            overused:
+              type: array
+              items:
+                type: string
+        bullet_improvements:
+          type: array
+          items:
+            type: object
+            properties:
+              original:
+                type: string
+              improved:
+                type: string
+              weakness_score:
+                type: integer
+              reasons:
+                type: array
+                items:
+                  type: string
+        action_plan:
+          type: object
+          properties:
+            must_fix:
+              type: array
+              items:
+                $ref: '#/components/schemas/ActionItem'
+            high_priority:
+              type: array
+              items:
+                $ref: '#/components/schemas/ActionItem'
+            medium_priority:
+              type: array
+              items:
+                $ref: '#/components/schemas/ActionItem'
+
+    ActionItem:
+      type: object
+      properties:
+        category:
+          type: string
+        message:
+          type: string

@@ -1,0 +1,19 @@
+Anish Kumar - Software Engineer
+Email: anish@example.com
+
+Summary:
+Experienced developer responsible for developing APIs for internal applications and frontend styling. Worked on backend development.
+
+Skills:
+Python, JavaScript, React, SQL, Git, HTML, CSS.
+
+Experience:
+Software Engineer at TechCorp
+2022 - Present
+- Developed APIs for internal applications.
+- Worked on backend development.
+- Wrote unit tests for codebase.
+- Helped with frontend styling.
+
+Education:
+Bachelor of Science in Computer Science - State University
