@@ -520,6 +520,21 @@ class DatabaseService:
             conn.close()
 
     @classmethod
+    def delete_analysis(cls, user_id: str, analysis_id: str) -> bool:
+        """Delete a single analysis record owned by the user. Returns True if deleted."""
+        conn = cls.get_db_connection()
+        try:
+            cursor = conn.cursor()
+            cursor.execute(
+                "DELETE FROM resume_analyses WHERE id = ? AND user_id = ?",
+                (analysis_id, user_id),
+            )
+            conn.commit()
+            return cursor.rowcount > 0
+        finally:
+            conn.close()
+
+    @classmethod
     def deduct_credit(cls, user_id: str):
         conn = cls.get_db_connection()
         try:

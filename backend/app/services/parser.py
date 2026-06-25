@@ -37,7 +37,15 @@ class ResumeParserService:
     def clean_text(text: str) -> str:
         """Cleans control characters, ligatures, and normalizes spacing."""
         text = text.replace("\u2013", "-").replace("\u2014", "-")
+        # Common ligatures
         text = text.replace("\ufb01", "fi").replace("\ufb02", "fl")
+        text = text.replace("\ufb00", "ff").replace("\ufb03", "ffi").replace("\ufb04", "ffl")
+        # Fix pypdf split-word artefacts: merge uppercase fragments separated by spaces
+        # e.g. "APPLICA TION" \u2192 "APPLICATION", "ASSOCIA TE" \u2192 "ASSOCIATE"
+        # Run multiple passes to catch chains like "ASSOCIA TE APPLICA TION"
+        for _ in range(4):
+            text = re.sub(r'\b([A-Z]{3,})\s+([A-Z]{2,7})\b', lambda m: m.group(1) + m.group(2), text)
+        # Normalize whitespace
         text = re.sub(r'\s+', ' ', text)
         return text.strip()
 

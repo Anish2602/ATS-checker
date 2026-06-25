@@ -143,6 +143,9 @@ export const userApi = {
 
   deleteAccount: () =>
     request<ApiResponse>('/user/account', { method: 'DELETE' }),
+
+  deleteAnalysis: (analysisId: string) =>
+    request<ApiResponse>(`/user/history/${analysisId}`, { method: 'DELETE' }),
 };
 
 // ─── ATS Engine ───────────────────────────────────────────────────────────

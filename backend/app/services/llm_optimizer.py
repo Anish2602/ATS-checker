@@ -1,8 +1,31 @@
 import os
 import random
+import re
 # pyrefly: ignore [missing-import]
 from openai import OpenAI
 from typing import Dict, Any, List
+
+# Proper nouns that must always be title-cased in output
+PROPER_NOUNS = {
+    "fastapi": "FastAPI", "flask": "Flask", "django": "Django",
+    "react": "React", "vue": "Vue", "angular": "Angular",
+    "python": "Python", "javascript": "JavaScript", "typescript": "TypeScript",
+    "node.js": "Node.js", "nodejs": "Node.js",
+    "postgresql": "PostgreSQL", "mysql": "MySQL", "mongodb": "MongoDB",
+    "redis": "Redis", "kafka": "Kafka", "elasticsearch": "Elasticsearch",
+    "docker": "Docker", "kubernetes": "Kubernetes",
+    "aws": "AWS", "gcp": "GCP", "azure": "Azure",
+    "github": "GitHub", "gitlab": "GitLab", "jenkins": "Jenkins",
+    "graphql": "GraphQL", "grpc": "gRPC",
+    "linux": "Linux", "bash": "Bash",
+}
+
+def _restore_proper_nouns(text: str) -> str:
+    """Restore proper noun capitalisation in an already-lowercased string."""
+    for lower, correct in PROPER_NOUNS.items():
+        # word-boundary safe replacement
+        text = re.sub(r'(?i)\b' + re.escape(lower) + r'\b', correct, text)
+    return text
 
 class LLMOptimizerService:
     @classmethod
@@ -124,8 +147,8 @@ class LLMOptimizerService:
                 "improving modular clean-code standards and lowering overall technical debt indices by 18%"
             ]
             
-        # 3. Pick random metric and build
-        metric_impact = random.choice(metrics)
+        # 3. Pick deterministically based on input text so same bullet → same rewrite
+        metric_impact = metrics[hash(text_lower) % len(metrics)]
         
         # Upper-case acronym tokens for professional readability
         acronyms = ["api", "apis", "db", "sql", "ui", "ux", "rest", "crud", "grpc"]
@@ -135,6 +158,17 @@ class LLMOptimizerService:
                 object_words[i] = word.upper()
         object_phrase = " ".join(object_words)
         
+        # Restore proper nouns, then title-case the first letter of each meaningful word
+        object_phrase = _restore_proper_nouns(object_phrase)
+        # Title-case words unless they're already a known proper noun (preserve e.g. "FastAPI")
+        known_proper_values = set(PROPER_NOUNS.values())
+        object_words = object_phrase.split()
+        object_words = [
+            w if w in known_proper_values or w.isupper()
+            else w[0].upper() + w[1:] if len(w) > 2 else w.upper()
+            for w in object_words
+        ]
+        object_phrase = " ".join(object_words)
         improved_template = f"{action} {object_phrase}, {metric_impact}."
         
         # 4. Run Heuristic audit checks

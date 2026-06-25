@@ -286,24 +286,38 @@ class ScoringEngineService:
 
     @staticmethod
     def heuristically_calculate_experience(text: str) -> int:
-        """Looks for dates (e.g. 2018 - 2024, 2021-Present) to estimate years of work."""
-        years = re.findall(r'\b(19\d{2}|20\d{2})\b', text)
-        if not years:
-            return 2 # Fallback average
-        
-        int_years = [int(y) for y in years if 1980 < int(y) < 2030]
-        if not int_years:
-            return 2
-            
-        min_year = min(int_years)
-        max_year = max(int_years)
-        
-        # If active present job is referenced, use current year (2026)
-        if "present" in text.lower() or "current" in text.lower():
-            max_year = 2026
-            
-        diff = max_year - min_year
-        return max(1, min(25, diff))
+        """
+        Sums work experience by finding explicit date ranges (YYYY - YYYY or YYYY - Present).
+        Avoids counting education graduation years or standalone years as spans.
+        """
+        current_year = 2026
+
+        # Match patterns like "2020 - 2023", "2020 – Present", "Jan 2019 - Mar 2022"
+        range_pattern = re.compile(
+            r'\b((?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\.?\s+)?(20\d{2}|19\d{2})\s*[-–—to]+\s*((?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\.?\s+)?(20\d{2}|19\d{2}|[Pp]resent|[Cc]urrent|[Nn]ow)\b'
+        )
+
+        total_years = 0.0
+        for m in range_pattern.finditer(text):
+            start = int(m.group(2))
+            end_raw = m.group(4)
+            if re.match(r'(?i)present|current|now', end_raw):
+                end = current_year
+            else:
+                end = int(end_raw)
+            if 1980 < start <= current_year and start <= end <= current_year:
+                total_years += (end - start)
+
+        if total_years > 0:
+            return max(1, min(25, round(total_years)))
+
+        # Fallback: look for any year ≥ 2015 and treat earliest as start
+        years = [int(y) for y in re.findall(r'\b(20\d{2})\b', text) if 2015 <= int(y) <= current_year]
+        if len(years) >= 2:
+            diff = current_year - min(years)
+            return max(1, min(25, diff))
+
+        return 2  # default if nothing found
         
     @classmethod
     def calculate_diagnostics(cls, resume_text: str) -> Dict[str, Any]:

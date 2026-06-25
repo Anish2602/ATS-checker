@@ -464,6 +464,14 @@ async def get_history(current_user: dict = Depends(get_current_user)):
     return DatabaseService.get_user_history(current_user["id"])
 
 
+@router.delete("/user/history/{analysis_id}")
+async def delete_analysis(analysis_id: str, current_user: dict = Depends(get_current_user)):
+    deleted = DatabaseService.delete_analysis(current_user["id"], analysis_id)
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Scan not found or not owned by you.")
+    return {"status": "success", "analysis_id": analysis_id}
+
+
 @router.delete("/user/account")
 async def delete_account(request: Request, current_user: dict = Depends(get_current_user)):
     user_id = current_user["id"]
@@ -520,7 +528,23 @@ async def analyze_resume(
         # Bullet improvements
         bullet_improvements = []
         experience_text = parsed_resume["sections"].get("experience", "")
-        bullets = [b.strip() for b in re.split(r"[-•\n\.\;]+", experience_text) if len(b.strip()) > 15]
+
+        def _is_job_title_line(s: str) -> bool:
+            """Returns True for lines that look like job titles / date headers, not achievement bullets."""
+            words = s.split()
+            if not words:
+                return True
+            # Skip lines where >50% of words are all-uppercase (company/title lines)
+            upper_count = sum(1 for w in words if w.isupper() and len(w) > 1)
+            if upper_count / len(words) > 0.5:
+                return True
+            # Skip lines that are mostly a date or month reference (e.g. "October 2024")
+            if re.match(r'^(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\w*[\s,]+\d{4}', s):
+                return True
+            return False
+
+        raw_bullets = [b.strip() for b in re.split(r"[-•\n;]+", experience_text) if len(b.strip()) > 15]
+        bullets = [b for b in raw_bullets if not _is_job_title_line(b)]
         for bullet in list(dict.fromkeys(bullets))[:4]:
             opt = LLMOptimizerService.optimize_bullet_point(bullet, target_role, target_company)
             if opt["weakness_score"] > 30:

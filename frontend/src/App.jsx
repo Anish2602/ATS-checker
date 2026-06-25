@@ -161,6 +161,10 @@ export default function App() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [workspaceView, setWorkspaceView] = useState('split');
 
+  // Custom confirm modal
+  const [confirmModal, setConfirmModal] = useState(null); // { message, onConfirm }
+  const showConfirm = (message, onConfirm) => setConfirmModal({ message, onConfirm });
+
   // Custom Router navigation
   const navigateTo = (path) => {
     window.history.pushState(null, '', path);
@@ -540,16 +544,15 @@ export default function App() {
   };
 
   // Delete User account
-  const handleDeleteAccount = async () => {
-    if (!window.confirm("Are you absolutely sure you want to permanently delete your account? This deletes all history and uploaded resumes, and cannot be undone.")) {
-      return;
-    }
-    try {
-      await userApi.deleteAccount();
-      await authLogout();
-    } catch (e) {
-      console.error(e);
-    }
+  const handleDeleteAccount = () => {
+    showConfirm("Permanently delete your account? All history, resumes, and data will be removed and cannot be recovered.", async () => {
+      try {
+        await userApi.deleteAccount();
+        await authLogout();
+      } catch (e) {
+        console.error(e);
+      }
+    });
   };
 
   // Run ATS analysis scan
@@ -660,7 +663,46 @@ export default function App() {
 
   return (
     <div className="app-wrapper animate-fade-in">
-      
+
+      {/* Custom Confirm Modal */}
+      {confirmModal && (
+        <div style={{
+          position: 'fixed', inset: 0, zIndex: 9999,
+          background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center'
+        }}>
+          <div style={{
+            background: '#0f1117', border: '1px solid rgba(255,255,255,0.1)',
+            borderRadius: '16px', padding: '1.75rem 2rem', maxWidth: '380px', width: '90%',
+            boxShadow: '0 25px 60px rgba(0,0,0,0.6)'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.75rem' }}>
+              <div style={{ width: 36, height: 36, borderRadius: '10px', background: 'rgba(239,68,68,0.15)', border: '1px solid rgba(239,68,68,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <Trash2 size={16} color="#f87171" />
+              </div>
+              <span style={{ fontSize: '0.85rem', fontWeight: 700, color: '#f3f4f6' }}>Confirm Delete</span>
+            </div>
+            <p style={{ fontSize: '0.78rem', color: '#9ca3af', lineHeight: 1.55, marginBottom: '1.5rem' }}>
+              {confirmModal.message}
+            </p>
+            <div style={{ display: 'flex', gap: '0.6rem', justifyContent: 'flex-end' }}>
+              <button
+                onClick={() => setConfirmModal(null)}
+                style={{ padding: '0.45rem 1.1rem', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.05)', color: '#9ca3af', fontSize: '0.78rem', fontWeight: 600, cursor: 'pointer' }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => { confirmModal.onConfirm(); setConfirmModal(null); }}
+                style={{ padding: '0.45rem 1.1rem', borderRadius: '8px', border: '1px solid rgba(239,68,68,0.4)', background: 'rgba(239,68,68,0.15)', color: '#f87171', fontSize: '0.78rem', fontWeight: 700, cursor: 'pointer' }}
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* LEFT SIDEBAR */}
       <aside className={`sidebar ${sidebarCollapsed ? 'collapsed' : ''}`}>
         <div className="sidebar-header">
@@ -690,22 +732,50 @@ export default function App() {
         <div className="sidebar-content">
           <div className="history-list">
             {history.map((item) => (
-              <button
+              <div
                 key={item.analysis_id}
-                onClick={() => loadHistoryItem(item.analysis_id)}
-                className={`history-item ${activeAnalysisId === item.analysis_id ? 'active' : ''}`}
+                className={`history-item group ${activeAnalysisId === item.analysis_id ? 'active' : ''}`}
+                style={{ position: 'relative' }}
               >
-                <div className="history-item-header">
-                  <span className="history-item-title">{item.jd_title || "Unnamed JD"}</span>
-                  <div className="history-item-scores">
-                    <span className="history-score-badge text-blue-400">{Math.round(item.ats_score)}%</span>
+                <button
+                  onClick={() => loadHistoryItem(item.analysis_id)}
+                  style={{ width: '100%', textAlign: 'left', background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}
+                >
+                  <div className="history-item-header">
+                    <span className="history-item-title">{item.jd_title || "Unnamed JD"}</span>
+                    <div className="history-item-scores">
+                      <span className="history-score-badge text-blue-400">{Math.round(item.ats_score)}%</span>
+                    </div>
                   </div>
-                </div>
-                <div className="history-item-meta font-mono">
-                  <span>{item.company_name || 'Generic'}</span>
-                  <span>{new Date(item.created_at).toLocaleDateString(undefined, {month: 'short', day: 'numeric'})}</span>
-                </div>
-              </button>
+                  <div className="history-item-meta font-mono">
+                    <span>{item.company_name || 'Generic'}</span>
+                    <span>{new Date(item.created_at).toLocaleDateString(undefined, {month: 'short', day: 'numeric'})}</span>
+                  </div>
+                </button>
+
+                {/* Delete button — shown on hover */}
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    showConfirm('Delete this scan from history? This cannot be undone.', async () => {
+                      try {
+                        await userApi.deleteAnalysis(item.analysis_id);
+                        setHistory(prev => prev.filter(h => h.analysis_id !== item.analysis_id));
+                        if (activeAnalysisId === item.analysis_id) {
+                          setResults(null);
+                          setActiveAnalysisId(null);
+                        }
+                      } catch (err) {
+                        console.error('Failed to delete scan', err);
+                      }
+                    });
+                  }}
+                  title="Delete scan"
+                  className="history-delete-btn"
+                >
+                  <Trash2 size={11} />
+                </button>
+              </div>
             ))}
 
             {history.length === 0 && (
@@ -1140,19 +1210,19 @@ export default function App() {
                       </h3>
                       <div className="grid-cols-4 gap-4">
                         {[
-                          { name: 'Keyword Alignment', value: results.overall_scores.keyword_match, color: 'text-green-400' },
-                          { name: 'Formatting Check', value: results.overall_scores.formatting, color: 'text-blue-400' },
-                          { name: 'Experience Match', value: results.overall_scores.experience, color: 'text-yellow-400' },
-                          { name: 'Sections Check', value: results.overall_scores.projects, color: 'text-purple-400' }
+                          { name: 'Keyword Alignment', value: results.overall_scores.keyword_match, color: '#4ade80', bg: 'rgba(74,222,128,0.08)', border: 'rgba(74,222,128,0.2)' },
+                          { name: 'Formatting Check',  value: results.overall_scores.formatting,     color: '#60a5fa', bg: 'rgba(96,165,250,0.08)', border: 'rgba(96,165,250,0.2)' },
+                          { name: 'Experience Match',  value: results.overall_scores.experience,     color: '#facc15', bg: 'rgba(250,204,21,0.08)',  border: 'rgba(250,204,21,0.2)'  },
+                          { name: 'Sections Check',    value: results.overall_scores.projects,       color: '#c084fc', bg: 'rgba(192,132,252,0.08)', border: 'rgba(192,132,252,0.2)' }
                         ].map((m) => (
-                          <div key={m.name} className="flex flex-col items-center gap-2 p-3 bg-gray-900/20 border border-gray-800/40 rounded-xl text-center">
-                            <span className="text-[11px] font-bold text-gray-400">{m.name}</span>
-                            <div className="relative w-16 h-16 flex items-center justify-center">
-                              <svg className="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
-                                <path className="text-gray-800" strokeWidth="2.5" stroke="currentColor" fill="none" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
-                                <path className={m.color} strokeWidth="2.5" strokeDasharray={`${m.value}, 100`} strokeLinecap="round" stroke="currentColor" fill="none" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                          <div key={m.name} style={{ background: m.bg, border: `1px solid ${m.border}` }} className="flex flex-col items-center gap-3 p-4 rounded-xl text-center">
+                            <span className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">{m.name}</span>
+                            <div className="relative w-20 h-20 flex items-center justify-center">
+                              <svg className="w-full h-full -rotate-90" viewBox="0 0 36 36">
+                                <path stroke="#1f2937" strokeWidth="3" fill="none" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                                <path stroke={m.color} strokeWidth="3" strokeDasharray={`${m.value}, 100`} strokeLinecap="round" fill="none" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
                               </svg>
-                              <div className="absolute text-xs font-black">{Math.round(m.value)}%</div>
+                              <div className="absolute text-sm font-black" style={{ color: m.color }}>{Math.round(m.value)}%</div>
                             </div>
                           </div>
                         ))}
@@ -1289,14 +1359,14 @@ export default function App() {
                             { label: 'Image Content Checks', check: !results.formatting.has_images, desc: 'Keep layout clean of graphs or avatars.' },
                             { label: 'Page Limits Audit', check: results.formatting.page_count <= 2, desc: 'Keep content under 2 pages.' }
                           ].map((f) => (
-                            <div key={f.label} className="flex justify-between items-start gap-4 p-2 bg-gray-900/10 border border-gray-800/30 rounded-lg">
-                              <div>
-                                <span className="text-xs font-bold text-gray-300 block">{f.label}</span>
-                                <span className="text-[10px] text-gray-500 mt-0.5 block">{f.desc}</span>
+                            <div key={f.label} style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', gap:'1rem', padding:'0.5rem 0.6rem', background:'rgba(255,255,255,0.03)', border:'1px solid rgba(255,255,255,0.07)', borderRadius:'8px' }}>
+                              <div style={{ flex:1 }}>
+                                <div style={{ fontSize:'0.75rem', fontWeight:700, color:'#d1d5db', marginBottom:'2px' }}>{f.label}</div>
+                                <div style={{ fontSize:'0.68rem', color:'#6b7280' }}>{f.desc}</div>
                               </div>
-                              <span className={`text-xs font-extrabold tracking-wider uppercase px-2 py-0.5 rounded ${f.check ? 'text-green-400 bg-green-950/20' : 'text-red-400 bg-red-950/20'}`}>
+                              <div style={{ fontSize:'0.7rem', fontWeight:800, letterSpacing:'0.06em', padding:'2px 8px', borderRadius:'5px', whiteSpace:'nowrap', color: f.check ? '#4ade80' : '#f87171', background: f.check ? 'rgba(74,222,128,0.1)' : 'rgba(248,113,113,0.1)' }}>
                                 {f.check ? 'PASS' : 'WARN'}
-                              </span>
+                              </div>
                             </div>
                           ))}
                         </div>
@@ -1309,29 +1379,23 @@ export default function App() {
                         </h3>
                         <div className="flex flex-col gap-2.5">
                           {results.action_plan.must_fix.map((item, idx) => (
-                            <div key={idx} className="flex justify-between items-start gap-3 p-2 bg-red-950/10 border border-red-950/30 rounded-lg">
-                              <div>
-                                <span className="text-[10px] uppercase font-black text-red-400 block tracking-wider">Critical Fix</span>
-                                <span className="text-xs font-bold text-gray-300 mt-0.5 block">{item.check || item.message}</span>
-                              </div>
+                            <div key={idx} style={{ padding:'0.5rem 0.6rem', background:'rgba(220,38,38,0.08)', border:'1px solid rgba(220,38,38,0.2)', borderRadius:'8px' }}>
+                              <div style={{ fontSize:'0.65rem', fontWeight:900, color:'#f87171', textTransform:'uppercase', letterSpacing:'0.07em', marginBottom:'4px' }}>Critical Fix</div>
+                              <div style={{ fontSize:'0.75rem', fontWeight:600, color:'#e5e7eb', lineHeight:1.4 }}>{item.check || item.message}</div>
                             </div>
                           ))}
 
                           {results.action_plan.high_priority.map((item, idx) => (
-                            <div key={idx} className="flex justify-between items-start gap-3 p-2 bg-yellow-950/10 border border-yellow-950/30 rounded-lg">
-                              <div>
-                                <span className="text-[10px] uppercase font-black text-yellow-400 block tracking-wider">High Priority</span>
-                                <span className="text-xs font-bold text-gray-300 mt-0.5 block">{item.check || item.message}</span>
-                              </div>
+                            <div key={idx} style={{ padding:'0.5rem 0.6rem', background:'rgba(202,138,4,0.08)', border:'1px solid rgba(202,138,4,0.2)', borderRadius:'8px' }}>
+                              <div style={{ fontSize:'0.65rem', fontWeight:900, color:'#facc15', textTransform:'uppercase', letterSpacing:'0.07em', marginBottom:'4px' }}>High Priority</div>
+                              <div style={{ fontSize:'0.75rem', fontWeight:600, color:'#e5e7eb', lineHeight:1.4 }}>{item.check || item.message}</div>
                             </div>
                           ))}
 
                           {results.action_plan.medium_priority.map((item, idx) => (
-                            <div key={idx} className="flex justify-between items-start gap-3 p-2 bg-gray-900/30 border border-gray-800/40 rounded-lg">
-                              <div>
-                                <span className="text-[10px] uppercase font-black text-gray-400 block tracking-wider">Optimization</span>
-                                <span className="text-xs font-bold text-gray-300 mt-0.5 block">{item.check || item.message}</span>
-                              </div>
+                            <div key={idx} style={{ padding:'0.5rem 0.6rem', background:'rgba(255,255,255,0.03)', border:'1px solid rgba(255,255,255,0.07)', borderRadius:'8px' }}>
+                              <div style={{ fontSize:'0.65rem', fontWeight:900, color:'#9ca3af', textTransform:'uppercase', letterSpacing:'0.07em', marginBottom:'4px' }}>Optimization</div>
+                              <div style={{ fontSize:'0.75rem', fontWeight:600, color:'#e5e7eb', lineHeight:1.4 }}>{item.check || item.message}</div>
                             </div>
                           ))}
                         </div>
