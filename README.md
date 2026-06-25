@@ -1,8 +1,24 @@
 # ATS Optimize — AI-Powered Resume & JD Matchmaking Platform
 
-> **Live Demo:** [https://ats-checker-ux35.vercel.app/login](https://ats-checker-ux35.vercel.app/login)
+> **Live Demo:** [https://ats-checker-orcin.vercel.app](https://ats-checker-orcin.vercel.app)
 
 An enterprise-grade platform that parses resumes (PDF, DOCX, TXT), scores them against job descriptions using custom algorithms, rewrites weak bullet points using AI, and provides an actionable coaching plan — all behind a complete authentication system with email verification and Google OAuth.
+
+---
+
+## Screenshots
+
+![Dashboard Overview](assets/image-1782380449835.webp)
+*ATS Match Analytics dashboard with score cards and upload panel*
+
+![Compatibility Indicators](assets/image-1782380475835.webp)
+*Radial chart breakdown — Keyword Alignment, Formatting Check, Experience Match, Sections Check*
+
+![AI Bullet Optimizer](assets/image-1782380484908.webp)
+*AI-powered bullet rewriter showing original vs optimised text with weakness badges*
+
+![Sidebar & Recent Scans](assets/image-1782380496728.webp)
+*Sidebar with scan history, user profile, and sign out*
 
 ---
 
