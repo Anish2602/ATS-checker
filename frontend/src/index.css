@@ -1423,3 +1423,192 @@ textarea {
 .microsoft-btn-secondary:hover {
   background-color: #48484a;
 }
+
+/* Password Strength Meter */
+.password-strength-container {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  margin-top: 0.35rem;
+}
+.password-strength-bar-wrapper {
+  display: flex;
+  gap: 0.25rem;
+  height: 5px;
+}
+.password-strength-bar {
+  flex: 1;
+  background-color: #2d2d2d;
+  border-radius: 3px;
+  transition: all 0.25s ease;
+}
+.password-strength-label {
+  font-size: 0.65rem;
+  text-align: right;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+/* Profile and Dynamic Views */
+.profile-view-container {
+  padding: 2rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  max-width: 900px;
+  margin: 0 auto;
+  color: #f3f4f6;
+  text-align: left;
+}
+.profile-card {
+  display: flex;
+  align-items: center;
+  gap: 2rem;
+  background: #111;
+  border: 1px solid #222;
+  padding: 2rem;
+  border-radius: 12px;
+  position: relative;
+  overflow: hidden;
+}
+.profile-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 4px;
+  background: linear-gradient(90deg, #4285f4, #ea4335, #fabc05, #34a853);
+}
+.profile-avatar-large {
+  width: 90px;
+  height: 90px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #4285f4, #1a73e8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 2.25rem;
+  font-weight: 800;
+  color: #fff;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+}
+.profile-avatar-img-large {
+  width: 90px;
+  height: 90px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+.profile-info-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 1.5rem;
+}
+.profile-detail-card {
+  background: #111;
+  border: 1px solid #222;
+  padding: 1.5rem;
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+.profile-detail-card h3 {
+  font-size: 0.9rem;
+  font-weight: bold;
+  text-transform: uppercase;
+  color: #9ca3af;
+  letter-spacing: 0.05em;
+  border-b: 1px solid #222;
+  padding-bottom: 0.5rem;
+}
+.profile-resumes-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-top: 0.5rem;
+  max-height: 250px;
+  overflow-y: auto;
+}
+.profile-resume-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: #1a1a1a;
+  border: 1px solid #2d2d2d;
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  font-size: 0.85rem;
+}
+.profile-resume-meta {
+  color: #9ca3af;
+  font-size: 0.75rem;
+}
+
+.history-grid-container {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 1.5rem;
+  margin-top: 1rem;
+}
+.history-grid-card {
+  background: #111;
+  border: 1px solid #222;
+  padding: 1.25rem;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.25s ease;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  text-align: left;
+}
+.history-grid-card:hover {
+  border-color: rgba(66, 133, 244, 0.4);
+  transform: translateY(-2px);
+  background: #151515;
+}
+.history-grid-card-title {
+  font-size: 0.95rem;
+  font-weight: bold;
+  color: #fff;
+}
+.history-grid-card-meta {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.75rem;
+  color: #9ca3af;
+}
+
+.sidebar-nav-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 1rem;
+  border-bottom: 1px solid #222;
+}
+.sidebar-nav-btn {
+  background: none;
+  border: none;
+  color: #9ca3af;
+  padding: 0.65rem 1rem;
+  border-radius: 8px;
+  font-family: inherit;
+  font-size: 0.8rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-align: left;
+}
+.sidebar-nav-btn:hover {
+  background-color: #1a1a1a;
+  color: #fff;
+}
+.sidebar-nav-btn.active {
+  background-color: rgba(66, 133, 244, 0.15);
+  color: #4285f4;
+}

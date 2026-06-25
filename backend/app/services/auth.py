@@ -1,77 +1,79 @@
-import hashlib
-import secrets
-from fastapi import Header, HTTPException, status, Depends
+from fastapi import Header, HTTPException, status, Depends, Request
 from typing import Optional, Dict, Any
 from app.services.database import DatabaseService
+from app.services.auth_service import AuthService
 
-class AuthService:
-    @staticmethod
-    def hash_password(password: str) -> str:
-        """Hashes a password using SHA-256 with a unique salt."""
-        salt = secrets.token_hex(16)
-        hash_func = hashlib.sha256()
-        hash_func.update((salt + password).encode('utf-8'))
-        hashed = hash_func.hexdigest()
-        return f"{salt}${hashed}"
-
-    @staticmethod
-    def verify_password(password: str, password_hash: str) -> bool:
-        """Verifies a password against its salt and SHA-256 hash."""
-        try:
-            salt, original_hash = password_hash.split("$", 1)
-            hash_func = hashlib.sha256()
-            hash_func.update((salt + password).encode('utf-8'))
-            hashed = hash_func.hexdigest()
-            return secrets.compare_digest(original_hash, hashed)
-        except Exception:
-            return False
-
-async def get_current_user(authorization: Optional[str] = Header(None)) -> Dict[str, Any]:
+async def get_current_user(request: Request, authorization: Optional[str] = Header(None)) -> Dict[str, Any]:
     """
-    FastAPI dependency that extracts the session token from the Authorization header,
-    validates the session, and returns the current user profile.
+    FastAPI dependency that extracts the JWT access token from the Authorization header or cookies,
+    validates the JWT, and returns the current user profile. Enforces email verification.
     """
-    if not authorization:
+    token = None
+    
+    # 1. Try extracting from Authorization header
+    if authorization:
+        if authorization.startswith("Bearer "):
+            token = authorization[7:]
+        else:
+            token = authorization
+            
+    # 2. Try extracting from Cookie if header is absent
+    if not token:
+        token = request.cookies.get("access_token")
+
+    if not token:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Missing Authorization header."
+            detail="Authentication token is missing. Please sign in."
         )
 
-    # Allow both 'Bearer <token>' and raw '<token>'
-    token = authorization
-    if token.startswith("Bearer "):
-        token = token[7:]
-
-    session = DatabaseService.get_session(token)
-    if not session:
+    user_id = AuthService.verify_access_token(token)
+    if not user_id:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Session has expired or is invalid."
+            detail="Access token is invalid or has expired."
         )
 
-    user = DatabaseService.get_user_by_id(session["user_id"])
+    user = DatabaseService.get_user_by_id(user_id)
     if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="User not found."
+            detail="User associated with this token does not exist."
+        )
+
+    # Enforce email verification (block action if unverified)
+    if not user.get("email_verified", 0):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={
+                "code": "EMAIL_UNVERIFIED",
+                "user_id": user["id"],
+                "email": user["email"],
+                "message": "Please verify your email address to access this resource."
+            }
         )
 
     return user
 
-async def get_optional_user(authorization: Optional[str] = Header(None)) -> Optional[Dict[str, Any]]:
+async def get_optional_user(request: Request, authorization: Optional[str] = Header(None)) -> Optional[Dict[str, Any]]:
     """
-    FastAPI dependency that extracts and validates the user session if provided,
+    FastAPI dependency that extracts and validates the user JWT if provided,
     but does not enforce authentication (returns None if not logged in).
     """
-    if not authorization:
+    token = None
+    if authorization:
+        if authorization.startswith("Bearer "):
+            token = authorization[7:]
+        else:
+            token = authorization
+    if not token:
+        token = request.cookies.get("access_token")
+
+    if not token:
         return None
 
-    token = authorization
-    if token.startswith("Bearer "):
-        token = token[7:]
-
-    session = DatabaseService.get_session(token)
-    if not session:
+    user_id = AuthService.verify_access_token(token)
+    if not user_id:
         return None
 
-    return DatabaseService.get_user_by_id(session["user_id"])
+    return DatabaseService.get_user_by_id(user_id)

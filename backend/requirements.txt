@@ -1,8 +1,14 @@
 fastapi
-uvicorn
+uvicorn[standard]
 pypdf
 python-docx
-pydantic
+pydantic[email]
 openai
 python-multipart
-jinja2
+bcrypt
+pyjwt
+requests
+email-validator
+google-auth
+psycopg2-binary
+python-dotenv
