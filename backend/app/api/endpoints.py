@@ -80,12 +80,13 @@ def _user_agent(request: Request) -> str:
 def _set_auth_cookies(response: Response, user_id: str, request: Request) -> str:
     """Create access + refresh tokens and set secure httpOnly cookies."""
     access_token = AuthService.create_access_token(user_id)
+    cookie_samesite = "none" if IS_PRODUCTION else "lax"
     response.set_cookie(
         key="access_token",
         value=access_token,
         httponly=True,
         max_age=15 * 60,
-        samesite="lax",
+        samesite=cookie_samesite,
         secure=IS_PRODUCTION,
     )
 
@@ -100,15 +101,16 @@ def _set_auth_cookies(response: Response, user_id: str, request: Request) -> str
         value=refresh_token,
         httponly=True,
         max_age=REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60,
-        samesite="lax",
+        samesite=cookie_samesite,
         secure=IS_PRODUCTION,
         path="/api/v1/auth",
     )
     return access_token
 
 def _clear_auth_cookies(response: Response):
-    response.delete_cookie("access_token")
-    response.delete_cookie("refresh_token", path="/api/v1/auth")
+    cookie_samesite = "none" if IS_PRODUCTION else "lax"
+    response.delete_cookie("access_token", samesite=cookie_samesite, secure=IS_PRODUCTION)
+    response.delete_cookie("refresh_token", path="/api/v1/auth", samesite=cookie_samesite, secure=IS_PRODUCTION)
 
 def _user_response(user: dict) -> dict:
     return {
