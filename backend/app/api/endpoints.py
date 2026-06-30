@@ -620,3 +620,23 @@ async def rewrite_bullet(payload: BulletRewriteRequest):
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.delete("/admin/delete-user")
+async def admin_delete_user(email: str, secret: str):
+    ADMIN_SECRET = os.getenv("ADMIN_SECRET", "")
+    if not ADMIN_SECRET or secret != ADMIN_SECRET:
+        raise HTTPException(status_code=403, detail="Forbidden")
+    conn = DatabaseService.get_db_connection()
+    try:
+        user = DatabaseService.get_user_by_email(email.strip().lower())
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
+        uid = user["id"]
+        conn.execute("DELETE FROM user_sessions WHERE user_id = ?", (uid,))
+        conn.execute("DELETE FROM resume_analyses WHERE user_id = ?", (uid,))
+        conn.execute("DELETE FROM users WHERE id = ?", (uid,))
+        conn.commit()
+        return {"status": "success", "deleted": email}
+    finally:
+        conn.close()
