@@ -157,16 +157,14 @@ async def signup(payload: SignupRequest, request: Request):
         first_name=first_name,
         last_name=last_name,
         auth_provider="email",
-        email_verified=0,
+        email_verified=1,
     )
 
-    token = DatabaseService.create_verification_token(user_id)
-    EmailService.send_verification_email(email, first_name or full_name, token)
     DatabaseService.log_audit(user_id, "user_signup", f"Email signup: {email}", _client_ip(request))
 
     return {
         "status": "success",
-        "message": "Account created! Please check your inbox and verify your email before signing in.",
+        "message": "Account created! You can now sign in.",
     }
 
 
@@ -181,17 +179,6 @@ async def login(payload: LoginRequest, request: Request, response: Response):
         if user:
             DatabaseService.log_login(user["id"], _client_ip(request), _user_agent(request), "failed")
         raise HTTPException(status_code=401, detail="Invalid email or password.")
-
-    if not user.get("email_verified"):
-        DatabaseService.log_login(user["id"], _client_ip(request), _user_agent(request), "unverified")
-        raise HTTPException(
-            status_code=403,
-            detail={
-                "code": "EMAIL_UNVERIFIED",
-                "email": user["email"],
-                "message": "Please verify your email address before signing in.",
-            },
-        )
 
     _set_auth_cookies(response, user["id"], request)
     DatabaseService.update_last_login(user["id"])
