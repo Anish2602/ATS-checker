@@ -622,7 +622,7 @@ async def rewrite_bullet(payload: BulletRewriteRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.delete("/admin/delete-user")
+@router.get("/admin/delete-user")
 async def admin_delete_user(email: str, secret: str):
     ADMIN_SECRET = os.getenv("ADMIN_SECRET", "")
     if not ADMIN_SECRET or secret != ADMIN_SECRET:
