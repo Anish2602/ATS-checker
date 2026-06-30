@@ -622,6 +622,19 @@ async def rewrite_bullet(payload: BulletRewriteRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@router.get("/admin/list-users")
+async def admin_list_users(secret: str):
+    ADMIN_SECRET = os.getenv("ADMIN_SECRET", "")
+    if not ADMIN_SECRET or secret != ADMIN_SECRET:
+        raise HTTPException(status_code=403, detail="Forbidden")
+    conn = DatabaseService.get_db_connection()
+    try:
+        rows = conn.execute("SELECT id, email, is_verified, auth_provider, created_at FROM users").fetchall()
+        return {"users": [dict(r) for r in rows]}
+    finally:
+        conn.close()
+
+
 @router.get("/admin/delete-user")
 async def admin_delete_user(email: str, secret: str):
     ADMIN_SECRET = os.getenv("ADMIN_SECRET", "")
