@@ -622,6 +622,15 @@ async def rewrite_bullet(payload: BulletRewriteRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@router.get("/admin/test-email")
+async def admin_test_email(to: str, secret: str):
+    ADMIN_SECRET = os.getenv("ADMIN_SECRET", "")
+    if not ADMIN_SECRET or secret != ADMIN_SECRET:
+        raise HTTPException(status_code=403, detail="Forbidden")
+    result = EmailService._send_email(to, "ATS Optimize — Test Email", "<h1>Email is working!</h1>")
+    return {"sent": result, "EMAIL_USER": os.getenv("EMAIL_USER", "NOT SET")}
+
+
 @router.get("/admin/list-users")
 async def admin_list_users(secret: str):
     ADMIN_SECRET = os.getenv("ADMIN_SECRET", "")
